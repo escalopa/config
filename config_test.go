@@ -1,4 +1,4 @@
-package config
+package goconfig
 
 import (
 	"os"
@@ -7,7 +7,12 @@ import (
 
 func createTestEnvFile(t *testing.T) {
 	f, err := os.Create("test.txt")
-	defer f.Close()
+	defer func() {
+		err = f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 	if err != nil {
 		t.Fatal(err)
 	}
