@@ -1,3 +1,3 @@
-module github.com/escalopa/goconfig
+module github.com/escalopa/config-go
 
 go 1.19

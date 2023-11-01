@@ -1,4 +1,4 @@
-package goconfig
+package config_go
 
 import (
 	"os"
