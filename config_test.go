@@ -1,57 +1,50 @@
-package goconfig
+package config_go
 
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func createTestEnvFile(t *testing.T) {
-	f, err := os.Create("test.txt")
+func createTempFile(t *testing.T) (*os.File, func() error) {
+	file, err := os.Create("/tmp/test.txt")
+	require.NoError(t, err)
+
 	defer func() {
-		err = f.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
+		err := file.Close()
+		require.NoError(t, err)
 	}()
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = f.WriteString("value_file")
-	if err != nil {
-		t.Fatal(err)
-	}
+
+	_, err = file.WriteString("value_file")
+	require.NoError(t, err)
+
+	return file, func() error { return os.Remove(file.Name()) }
 }
+
 func TestConfigGet(t *testing.T) {
-	createTestEnvFile(t)
-	defer os.Remove("test.txt")
+	file, clean := createTempFile(t)
+	defer clean()
+
 	tests := []struct {
 		name    string
-		prepare func(c *Config)
+		prepare func()
 		clean   func() error
 		key     string
 		want    string
 	}{
 		{
-			name: "get existing key", prepare: func(c *Config) {
-				c.m = map[string]string{"key": "value"}
-			},
-			key:  "key",
-			want: "value",
-		},
-		{
 			name: "using secret file",
-			prepare: func(c *Config) {
-				_ = os.Setenv("key_FILE", "test.txt")
+			prepare: func() {
+				_ = os.Setenv("key_file", file.Name())
 			},
-			clean: func() error {
-				return os.Unsetenv("key_FILE")
-			},
-			key:  "key",
-			want: "value_file",
+			clean: func() error { return os.Unsetenv("key_file") },
+			key:   "key_file",
+			want:  "value_file",
 		},
 		{
 			name: "using env variable",
-			prepare: func(c *Config) {
+			prepare: func() {
 				_ = os.Setenv("key", "value_env")
 			},
 			clean: func() error {
@@ -63,14 +56,9 @@ func TestConfigGet(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := New()
-			tt.prepare(c)
-			defer func() {
-				if tt.clean != nil {
-					tt.clean()
-				}
-			}()
-			if got := c.Get(tt.key); got != tt.want {
+			tt.prepare()
+			defer func() { tt.clean() }()
+			if got := Get(tt.key); got != tt.want {
 				t.Errorf("Config.Get() = %v, want %v", got, tt.want)
 			}
 		})
